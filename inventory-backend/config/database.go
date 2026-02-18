@@ -1,3 +1,4 @@
+
 package config
 
 import (
@@ -10,7 +11,7 @@ import (
 var DB *gorm.DB
 
 func ConnectDB() {
-	dsn := "host=localhost user=postgres password=1234567890 dbname=inventory port=5432 sslmode=disable"
+	dsn := "host=localhost user=postgres password=12345678 dbname=inventory port=5432 sslmode=disable"
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {

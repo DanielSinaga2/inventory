@@ -4,6 +4,7 @@ import (
 	"inventory-backend/config"
 	"inventory-backend/models"
 	"inventory-backend/routes"
+	"inventory-backend/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -23,6 +24,7 @@ func main() {
 		&models.User{},
 	)
 
+	utils.SeedAdmin()
 	routes.AuthRoutes(app)
 	routes.ProductRoutes(app)
 	routes.InvoiceRoutes(app)
