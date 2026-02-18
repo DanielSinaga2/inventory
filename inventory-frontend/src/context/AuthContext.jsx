@@ -1,34 +1,45 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import API from "../api";
 
-export const AuthContext = createContext();
+export const AuthContext = createContext(null);
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+export function AuthProvider({ children }) {
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) setUser(JSON.parse(savedUser));
-  }, []);
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("user");
+    return saved ? JSON.parse(saved) : null;
+  });
 
-  const login = (username, password) => {
-    const users = JSON.parse(localStorage.getItem("users")) || [];
+  const login = async (username, password) => {
+    try {
+      const res = await API.post("/login", {
+        username,
+        password,
+      });
 
-    const foundUser = users.find(
-      (u) => u.username === username && u.password === password
-    );
+      const { token, user } = res.data;
 
-    if (foundUser) {
-      localStorage.setItem("user", JSON.stringify(foundUser));
-      setUser(foundUser);
-      return true;
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      setUser(user);
+
+      if (user.role === "admin") {
+        navigate("/dashboard");
+      } else {
+        navigate("/products");
+      }
+    } catch (err) {
+      alert("Login failed");
     }
-
-    return false;
   };
 
   const logout = () => {
-    localStorage.removeItem("user");
+    localStorage.clear();
     setUser(null);
+    navigate("/");
   };
 
   return (
@@ -36,4 +47,4 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-};
+}

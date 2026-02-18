@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"inventory-backend/database"
 	"inventory-backend/config"
 	"inventory-backend/models"
 	"time"
@@ -13,7 +14,6 @@ import (
 var jwtSecret = []byte("secret")
 
 func Login(c *fiber.Ctx) error {
-
 	type LoginInput struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -26,33 +26,30 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	// 🔥 FIX: pakai username bukan email
-	if err := config.DB.Where("username = ?", input.Username).First(&user).Error; err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "User not found"})
+	// 🔥 PASTIKAN PAKAI USERNAME
+	if err := database.DB.Where("username = ?", input.Username).First(&user).Error; err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
 
-	// Compare password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Wrong password"})
+	// cek password (kalau belum pakai bcrypt)
+	if user.Password != input.Password {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
 
-	// Create token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": user.ID,
-		"role":    user.Role,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+		"id":   user.ID,
+		"role": user.Role,
+		"exp":  time.Now().Add(time.Hour * 24).Unix(),
 	})
 
-	t, err := token.SignedString(jwtSecret)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Token error"})
-	}
+	t, _ := token.SignedString([]byte("secret"))
 
 	return c.JSON(fiber.Map{
 		"token": t,
-		"role":  user.Role,
+		"user":  user,
 	})
 }
+
 
 func CreateStaff(c *fiber.Ctx) error {
 

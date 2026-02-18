@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from "react";
+import API from "../api";
 import { AuthContext } from "../context/AuthContext";
 
 export default function Users() {
@@ -12,24 +13,23 @@ export default function Users() {
   const [password, setPassword] = useState("");
 
   useEffect(() => {
-    loadUsers();
+    fetchUsers();
   }, []);
 
-  const loadUsers = () => {
-    const saved = JSON.parse(localStorage.getItem("users")) || [];
-    setUsers(saved);
-  };
-
-  const saveUsers = (data) => {
-    localStorage.setItem("users", JSON.stringify(data));
-    setUsers(data);
+  const fetchUsers = async () => {
+    try {
+      const res = await API.get("/users");
+      setUsers(res.data);
+    } catch (err) {
+      alert("Unauthorized");
+    }
   };
 
   const openModal = (u = null) => {
     if (u) {
+      setEditingUser(u);
       setUsername(u.username);
       setPassword(u.password);
-      setEditingUser(u.username);
     } else {
       resetForm();
     }
@@ -47,7 +47,7 @@ export default function Users() {
     setEditingUser(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!username || !password) {
@@ -55,58 +55,49 @@ export default function Users() {
       return;
     }
 
-    let updated = [...users];
-
-    if (editingUser) {
-      updated = users.map((u) =>
-        u.username === editingUser
-          ? { ...u, username, password }
-          : u
-      );
-      alert("User berhasil diupdate");
-    } else {
-      const duplicate = users.find((u) => u.username === username);
-      if (duplicate) {
-        alert("Username sudah digunakan");
-        return;
+    try {
+      if (editingUser) {
+        await API.put(`/users/${editingUser.id}`, {
+          username,
+          password,
+        });
+        alert("User berhasil diupdate");
+      } else {
+        await API.post("/users", {
+          username,
+          password,
+        });
+        alert("Staff berhasil ditambahkan");
       }
 
-      updated.push({
-        username,
-        password,
-        role: "staff"
-      });
-
-      alert("Staff berhasil ditambahkan");
+      fetchUsers();
+      closeModal();
+    } catch (err) {
+      alert("Terjadi kesalahan");
     }
-
-    saveUsers(updated);
-    closeModal();
   };
 
-  const handleDelete = (usernameToDelete) => {
-    if (usernameToDelete === user.username) {
-      alert("Tidak bisa menghapus akun sendiri");
+  const handleDelete = async (id) => {
+    if (user.id === id) {
+      alert("Tidak bisa hapus akun sendiri");
       return;
     }
 
     if (!window.confirm("Yakin hapus user?")) return;
 
-    const filtered = users.filter(
-      (u) => u.username !== usernameToDelete
-    );
-
-    saveUsers(filtered);
+    try {
+      await API.delete(`/users/${id}`);
+      fetchUsers();
+    } catch (err) {
+      alert("Gagal menghapus");
+    }
   };
 
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center">
         <h2>Manage Users</h2>
-        <button
-          className="btn btn-success"
-          onClick={() => openModal()}
-        >
+        <button className="btn btn-success" onClick={() => openModal()}>
           + Create Staff
         </button>
       </div>
@@ -115,14 +106,16 @@ export default function Users() {
         <table className="table table-bordered">
           <thead className="table-dark">
             <tr>
+              <th>ID</th>
               <th>Username</th>
               <th>Role</th>
               <th width="200">Action</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((u, index) => (
-              <tr key={index}>
+            {users.map((u) => (
+              <tr key={u.id}>
+                <td>{u.id}</td>
                 <td>{u.username}</td>
                 <td>
                   <span
@@ -147,9 +140,7 @@ export default function Users() {
 
                       <button
                         className="btn btn-danger btn-sm"
-                        onClick={() =>
-                          handleDelete(u.username)
-                        }
+                        onClick={() => handleDelete(u.id)}
                       >
                         Delete
                       </button>
@@ -161,7 +152,7 @@ export default function Users() {
 
             {users.length === 0 && (
               <tr>
-                <td colSpan="3" className="text-center">
+                <td colSpan="4" className="text-center">
                   Belum ada user
                 </td>
               </tr>
@@ -170,7 +161,6 @@ export default function Users() {
         </table>
       </div>
 
-      {/* MODAL */}
       {showModal && (
         <div className="modal show fade d-block">
           <div className="modal-dialog">
@@ -178,9 +168,7 @@ export default function Users() {
               <form onSubmit={handleSubmit}>
                 <div className="modal-header">
                   <h5 className="modal-title">
-                    {editingUser
-                      ? "Edit Staff"
-                      : "Create Staff"}
+                    {editingUser ? "Edit Staff" : "Create Staff"}
                   </h5>
                   <button
                     type="button"
@@ -194,18 +182,14 @@ export default function Users() {
                     className="form-control mb-2"
                     placeholder="Username"
                     value={username}
-                    onChange={(e) =>
-                      setUsername(e.target.value)
-                    }
+                    onChange={(e) => setUsername(e.target.value)}
                   />
                   <input
                     type="password"
                     className="form-control"
                     placeholder="Password"
                     value={password}
-                    onChange={(e) =>
-                      setPassword(e.target.value)
-                    }
+                    onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
 

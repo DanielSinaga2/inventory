@@ -1,31 +1,34 @@
 import { useState, useEffect } from "react";
+import API from "../api";
 
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("products")) || [];
-    setProducts(saved);
+    fetchProducts();
   }, []);
 
-  const saveProducts = (data) => {
-    localStorage.setItem("products", JSON.stringify(data));
-    setProducts(data);
+  const fetchProducts = async () => {
+    try {
+      const res = await API.get("/products");
+      setProducts(res.data);
+    } catch (err) {
+      alert("Unauthorized, silakan login ulang");
+    }
   };
 
-  const openModal = (index = null) => {
-    if (index !== null) {
-      const product = products[index];
+  const openModal = (product = null) => {
+    if (product) {
+      setEditingProduct(product);
       setName(product.name);
       setPrice(product.price);
       setStock(product.stock);
-      setEditingIndex(index);
     } else {
       resetForm();
     }
@@ -41,10 +44,10 @@ export default function Products() {
     setName("");
     setPrice("");
     setStock("");
-    setEditingIndex(null);
+    setEditingProduct(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!name || !price || !stock) {
@@ -52,35 +55,46 @@ export default function Products() {
       return;
     }
 
-    let updated = [...products];
+    try {
+      if (editingProduct) {
+        await API.put(`/products/${editingProduct.id}`, {
+          name,
+          price: parseFloat(price),
+          stock: parseInt(stock),
+        });
+        alert("Product berhasil diupdate");
+      } else {
+        await API.post("/products", {
+          name,
+          price: parseFloat(price),
+          stock: parseInt(stock),
+        });
+        alert("Product berhasil ditambahkan");
+      }
 
-    if (editingIndex !== null) {
-      updated[editingIndex] = { name, price, stock };
-      alert("Product berhasil diupdate");
-    } else {
-      updated.push({ name, price, stock });
-      alert("Product berhasil ditambahkan");
+      fetchProducts();
+      closeModal();
+    } catch (err) {
+      alert("Terjadi kesalahan");
     }
-
-    saveProducts(updated);
-    closeModal();
   };
 
-  const handleDelete = (index) => {
+  const handleDelete = async (id) => {
     if (!window.confirm("Yakin hapus product?")) return;
 
-    const updated = products.filter((_, i) => i !== index);
-    saveProducts(updated);
+    try {
+      await API.delete(`/products/${id}`);
+      fetchProducts();
+    } catch (err) {
+      alert("Gagal menghapus");
+    }
   };
 
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center">
         <h2>Products</h2>
-        <button
-          className="btn btn-success"
-          onClick={() => openModal()}
-        >
+        <button className="btn btn-success" onClick={() => openModal()}>
           + Create Product
         </button>
       </div>
@@ -89,6 +103,7 @@ export default function Products() {
         <table className="table table-bordered">
           <thead className="table-dark">
             <tr>
+              <th>ID</th>
               <th>Name</th>
               <th>Price</th>
               <th>Stock</th>
@@ -98,28 +113,29 @@ export default function Products() {
           <tbody>
             {products.length === 0 && (
               <tr>
-                <td colSpan="4" className="text-center">
+                <td colSpan="5" className="text-center">
                   Belum ada product
                 </td>
               </tr>
             )}
 
-            {products.map((p, index) => (
-              <tr key={index}>
+            {products.map((p) => (
+              <tr key={p.id}>
+                <td>{p.id}</td>
                 <td>{p.name}</td>
                 <td>{p.price}</td>
                 <td>{p.stock}</td>
                 <td>
                   <button
                     className="btn btn-warning btn-sm me-2"
-                    onClick={() => openModal(index)}
+                    onClick={() => openModal(p)}
                   >
                     Edit
                   </button>
 
                   <button
                     className="btn btn-danger btn-sm"
-                    onClick={() => handleDelete(index)}
+                    onClick={() => handleDelete(p.id)}
                   >
                     Delete
                   </button>
@@ -130,7 +146,6 @@ export default function Products() {
         </table>
       </div>
 
-      {/* MODAL */}
       {showModal && (
         <div className="modal show fade d-block">
           <div className="modal-dialog">
@@ -138,9 +153,7 @@ export default function Products() {
               <form onSubmit={handleSubmit}>
                 <div className="modal-header">
                   <h5 className="modal-title">
-                    {editingIndex !== null
-                      ? "Edit Product"
-                      : "Create Product"}
+                    {editingProduct ? "Edit Product" : "Create Product"}
                   </h5>
                   <button
                     type="button"
@@ -181,7 +194,7 @@ export default function Products() {
                     Cancel
                   </button>
                   <button className="btn btn-success">
-                    {editingIndex !== null ? "Update" : "Create"}
+                    {editingProduct ? "Update" : "Create"}
                   </button>
                 </div>
               </form>
