@@ -9,27 +9,22 @@ import (
 )
 
 func SeedAdmin() {
-
 	var user models.User
 
-	// cek apakah admin sudah ada
-	config.DB.Where("role = ?", "admin").First(&user)
-
-	if user.ID != 0 {
-		log.Println("Admin already exists")
+	err := config.DB.Where("username = ?", "admin").First(&user).Error
+	if err == nil {
 		return
 	}
 
-	// hash password
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("admin123"), 10)
+	hash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
 
 	admin := models.User{
 		Username: "admin",
-		Password: string(hashedPassword),
+		Password: string(hash),
 		Role:     "admin",
 	}
 
 	config.DB.Create(&admin)
 
-	log.Println("Admin user created")
+	log.Println("Admin created -> admin / admin123")
 }

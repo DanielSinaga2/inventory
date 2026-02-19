@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"inventory-backend/database"
 	"inventory-backend/config"
 	"inventory-backend/models"
 	"time"
@@ -13,70 +12,36 @@ import (
 
 var jwtSecret = []byte("secret")
 
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 func Login(c *fiber.Ctx) error {
-	type LoginInput struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
+	var body LoginRequest
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid"})
 	}
 
-	var input LoginInput
 	var user models.User
-
-	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	if err := config.DB.Where("username = ?", body.Username).First(&user).Error; err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "user not found"})
 	}
 
-	// 🔥 PASTIKAN PAKAI USERNAME
-	if err := database.DB.Where("username = ?", input.Username).First(&user).Error; err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
-	}
-
-	// cek password (kalau belum pakai bcrypt)
-	if user.Password != input.Password {
-		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password)) != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "wrong password"})
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":   user.ID,
-		"role": user.Role,
-		"exp":  time.Now().Add(time.Hour * 24).Unix(),
+		"user_id": user.ID,
+		"role":    user.Role,
+		"exp":     time.Now().Add(time.Hour * 72).Unix(),
 	})
 
-	t, _ := token.SignedString([]byte("secret"))
+	t, _ := token.SignedString(jwtSecret)
 
 	return c.JSON(fiber.Map{
 		"token": t,
 		"user":  user,
-	})
-}
-
-
-func CreateStaff(c *fiber.Ctx) error {
-
-	type Input struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
-
-	var input Input
-
-	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
-	}
-
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(input.Password), 10)
-
-	staff := models.User{
-		Username: input.Username,
-		Password: string(hashedPassword),
-		Role:     "staff",
-	}
-
-	if err := config.DB.Create(&staff).Error; err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "User already exists"})
-	}
-
-	return c.JSON(fiber.Map{
-		"message": "Staff created successfully",
 	})
 }

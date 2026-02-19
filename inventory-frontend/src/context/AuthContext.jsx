@@ -14,30 +14,37 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     try {
-      const res = await API.post("/login", {
+      const res = await API.post("/api/login", {
         username,
         password,
       });
 
-      const { token, user } = res.data;
+      const token = res.data.token;
+      const loggedUser = res.data.user;
 
       localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("user", JSON.stringify(loggedUser));
 
-      setUser(user);
+      setUser(loggedUser);
 
-      if (user.role === "admin") {
+      // role routing
+      if (loggedUser.role === "admin") {
         navigate("/dashboard");
       } else {
         navigate("/products");
       }
+
+      return true;
     } catch (err) {
+      console.log("LOGIN ERROR:", err.response?.data || err.message);
       alert("Login failed");
+      return false;
     }
   };
 
   const logout = () => {
-    localStorage.clear();
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setUser(null);
     navigate("/");
   };

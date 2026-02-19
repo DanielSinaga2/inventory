@@ -9,10 +9,8 @@ import (
 
 func AuthRoutes(app *fiber.App) {
 
-	// Public
 	app.Post("/api/login", controllers.Login)
 
-	// Admin only
 	admin := app.Group("/api",
 		middleware.Protected(),
 		middleware.RoleMiddleware("admin"),
